@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Management</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-4xl font-bold mb-8 text-center text-blue-600">Session Management</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">Create Session</h2>
+                <form id="createSessionForm" class="space-y-4">
+                    <div>
+                        <label for="sessionName" class="block text-gray-700 text-sm font-bold mb-2">Session Name</label>
+                        <input type="text" id="sessionName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    </div>
+                    <div>
+                        <label for="sessionStartDate" class="block text-gray-700 text-sm font-bold mb-2">Start Date</label>
+                        <input type="date" id="sessionStartDate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    </div>
+                    <div>
+                        <label for="sessionEndDate" class="block text-gray-700 text-sm font-bold mb-2">End Date</label>
+                        <input type="date" id="sessionEndDate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    </div>
+                    <div>
+                        <label for="sessionFee" class="block text-gray-700 text-sm font-bold mb-2">Session Fee (Rs. )</label>
+                        <input type="number" id="sessionFee" min="0" step="0.01" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="0.00" value="0">
+                    </div>
+<div>
+    <label for="sessionClass" class="block text-gray-700 text-sm font-bold mb-2">Class</label>
+    <select id="sessionClass" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+        <option value="">Select a class</option>
+    </select>
+</div>
+
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="sessionIsPublic" class="mr-2">
+                        <label for="sessionIsPublic" class="text-gray-700 text-sm font-bold">Make Public</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="sessionAutoApprove" class="mr-2">
+                        <label for="sessionAutoApprove" class="text-gray-700 text-sm font-bold">Auto Approve</label>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300">
+                        Create Session
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">Manage Sessions</h2>
+                <div class="mb-4">
+                    <button id="bulkEditButton" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2">
+                        Bulk Edit
+                    </button>
+                    <button id="selectAllButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded hidden">
+                        Select All
+                    </button>
+                    <button id="deselectAllButton" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded hidden">
+                        Deselect All
+                    </button>
+                    <button id="applyBulkEditButton" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded hidden">
+                        Apply Changes
+                    </button>
+                </div>
+                <div id="sessionsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editSessionModal" class="fixed z-10 inset-0 overflow-y-auto hidden">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Edit Session</h3>
+                        <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-500 focus:outline-none">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="editSessionForm" class="mt-2">
+                        <input type="hidden" id="editSessionId">
+                        <div class="mb-4">
+                            <label for="editSessionName" class="block text-gray-700 text-sm font-bold mb-2">Session Name</label>
+                            <input type="text" id="editSessionName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="editSessionStartDate" class="block text-gray-700 text-sm font-bold mb-2">Start Date</label>
+                            <input type="date" id="editSessionStartDate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="editSessionEndDate" class="block text-gray-700 text-sm font-bold mb-2">End Date</label>
+                            <input type="date" id="editSessionEndDate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="editSessionFee" class="block text-gray-700 text-sm font-bold mb-2">Session Fee (Rs.)</label>
+                            <input type="number" id="editSessionFee" min="0" step="0.01" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="0.00">
+                        </div>
+<div class="mb-4">
+    <label for="editSessionClass" class="block text-gray-700 text-sm font-bold mb-2">Class</label>
+    <select id="editSessionClass" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+        <option value="">Select a class</option>
+    </select>
+</div>
+
+
+
+
+                        <div class="mb-4 flex items-center">
+                            <input type="checkbox" id="editSessionIsPublic" class="mr-2">
+                            <label for="editSessionIsPublic" class="text-gray-700 text-sm font-bold">Make Public</label>
+                        </div>
+                        <div class="mb-4 flex items-center">
+                            <input type="checkbox" id="editSessionAutoApprove" class="mr-2">
+                            <label for="editSessionAutoApprove" class="text-gray-700 text-sm font-bold">Auto Approve</label>
+                        </div>
+                        <div class="mt-5 sm:mt-6">
+                            <button type="submit" class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm transition duration-300">
+                                Update Session
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyC6mRpHH3IEoy8MPdkIjSpV67EVLKII7xw",
+        authDomain: "medify4u.firebaseapp.com",
+        projectId: "medify4u",
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    const db = firebase.firestore();
+
+    let sessions = [];
+    let bulkEditMode = false;
+
+   function loadSessions() {
+    const sessionsContainer = document.getElementById('sessionsContainer');
+    sessionsContainer.innerHTML = '';
+
+    db.collection('sessions').get().then((querySnapshot) => {
+        sessions = [];
+        const cardPromises = [];
+        
+        querySnapshot.forEach((doc) => {
+            const session = { id: doc.id, ...doc.data() };
+            sessions.push(session);
+            cardPromises.push(createSessionCard(session));
+        });
+
+        Promise.all(cardPromises).then(cards => {
+            cards.forEach(card => {
+                sessionsContainer.appendChild(card);
+            });
+        });
+    });
+}
+
+   function createSessionCard(session) {
+    return db.collection('classes').doc(session.classId).get().then((classDoc) => {
+        const className = classDoc.exists ? classDoc.data().name : 'Unknown Class';
+        
+        const card = document.createElement('div');
+        card.className = 'bg-white shadow-md rounded-lg p-4 mb-4';
+        card.innerHTML = `
+            <h3 class="text-lg font-semibold mb-2">${session.name}</h3>
+            <p class="text-sm text-gray-600 mb-1">Class: ${className}</p>
+            <p class="text-sm text-gray-600 mb-1">Start: ${formatDate(session.startDate)}</p>
+            <p class="text-sm text-gray-600 mb-1">End: ${formatDate(session.endDate)}</p>
+            <p class="text-sm text-gray-600 mb-1">Status: ${session.disabled ? 
+                '<span class="text-red-600">Disabled</span>' : 
+                (isSessionActive(session.startDate, session.endDate) ? '<span class="text-green-600">Active</span>' : '<span class="text-yellow-600">Inactive</span>')}
+            </p>
+            <p class="text-sm text-gray-600 mb-1">Public: ${session.isPublic ? 
+                '<span class="text-green-600">Yes</span>' : 
+                '<span class="text-red-600">No</span>'}
+            </p>
+            <p class="text-sm text-gray-600 mb-1">Auto Approve: ${session.autoApprove ? 
+                '<span class="text-green-600">Yes</span>' : 
+                '<span class="text-red-600">No</span>'}
+            </p>
+            <p class="text-sm text-gray-600 mb-2">Fee: ${session.fee ? `Rs. ${parseFloat(session.fee).toFixed(2)}` : 'Free'}</p>
+            <div class="flex justify-between items-center">
+                <button onclick="editSession('${session.id}')" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button onclick="deleteSession('${session.id}')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs">
+                    <i class="fas fa-trash-alt"></i> Delete
+                </button>
+                <button onclick="toggleSessionStatus('${session.id}', ${session.disabled})" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-xs">
+                    <i class="fas fa-power-off"></i> ${session.disabled ? 'Enable' : 'Disable'}
+                </button>
+            </div>
+            <div class="mt-2 hidden bulk-edit-checkbox">
+                <input type="checkbox" id="checkbox-${session.id}" class="session-checkbox">
+                <label for="checkbox-${session.id}">Select for bulk edit</label>
+            </div>
+        `;
+        return card;
+    });
+}
+
+// Function to load classes
+function loadClasses() {
+    const createClassSelect = document.getElementById('sessionClass');
+    const editClassSelect = document.getElementById('editSessionClass');
+    
+    // Clear existing options except the first one
+    createClassSelect.innerHTML = '<option value="">Select a class</option>';
+    editClassSelect.innerHTML = '<option value="">Select a class</option>';
+    
+    db.collection('classes').get().then((querySnapshot) => {
+        querySnapshot.forEach((doc) => {
+            const classData = doc.data();
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = classData.name; // Assuming class has a 'name' field
+            
+            // Create copies for both selects
+            const optionCopy = option.cloneNode(true);
+            createClassSelect.appendChild(option);
+            editClassSelect.appendChild(optionCopy);
+        });
+    }).catch((error) => {
+        console.error("Error loading classes: ", error);
+    });
+}
+
+// Call loadClasses when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    loadSessions();
+    loadClasses();
+});
+
+    // Create session
+    document.getElementById('createSessionForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const sessionName = document.getElementById('sessionName').value;
+        const startDate = document.getElementById('sessionStartDate').value;
+        const endDate = document.getElementById('sessionEndDate').value;
+        const isPublic = document.getElementById('sessionIsPublic').checked;
+        const autoApprove = document.getElementById('sessionAutoApprove').checked;
+        const fee = parseFloat(document.getElementById('sessionFee').value) || 0;
+    const classId = document.getElementById('sessionClass').value;
+
+
+
+
+    if (!classId) {
+        alert('Please select a class');
+        return;
+    }
+
+        db.collection('sessions').add({
+            name: sessionName,
+            startDate: startDate,
+            endDate: endDate,
+            isPublic: isPublic,
+            autoApprove: autoApprove,
+            fee: fee,
+                    classId: classId, // Add class ID to session data
+disabled: false,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            alert('Session created successfully');
+            document.getElementById('createSessionForm').reset();
+            loadSessions();
+        }).catch((error) => {
+            console.error("Error creating session: ", error);
+            alert('Error creating session');
+        });
+    });
+
+    // Edit session
+    function editSession(sessionId) {
+        const editSessionModal = document.getElementById('editSessionModal');
+        const editSessionForm = document.getElementById('editSessionForm');
+        const editSessionId = document.getElementById('editSessionId');
+        const editSessionName = document.getElementById('editSessionName');
+        const editSessionStartDate = document.getElementById('editSessionStartDate');
+        const editSessionEndDate = document.getElementById('editSessionEndDate');
+        const editSessionIsPublic = document.getElementById('editSessionIsPublic');
+        const editSessionAutoApprove = document.getElementById('editSessionAutoApprove');
+        const editSessionFee = document.getElementById('editSessionFee');
+
+        db.collection('sessions').doc(sessionId).get().then((doc) => {
+            if (doc.exists) {
+                const session = doc.data();
+                editSessionId.value = sessionId;
+                editSessionName.value = session.name;
+                editSessionStartDate.value = session.startDate;
+                editSessionEndDate.value = session.endDate;
+                editSessionIsPublic.checked = session.isPublic;
+                editSessionAutoApprove.checked = session.autoApprove;
+                editSessionFee.value = session.fee || 0;
+                         document.getElementById('editSessionClass').value = session.classId || '';
+
+
+
+                editSessionModal.classList.remove('hidden');
+            }
+        }).catch((error) => {
+            console.error("Error getting session: ", error);
+        });
+    }
+
+    // Update session
+    document.getElementById('editSessionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const sessionId = document.getElementById('editSessionId').value;
+            const classId = document.getElementById('editSessionClass').value;
+  if (!classId) {
+        alert('Please select a class');
+        return;
+    }
+        const updatedSession = {
+            name: document.getElementById('editSessionName').value,
+            startDate: document.getElementById('editSessionStartDate').value,
+            endDate: document.getElementById('editSessionEndDate').value,
+            isPublic: document.getElementById('editSessionIsPublic').checked,
+            autoApprove: document.getElementById('editSessionAutoApprove').checked,
+            fee: parseFloat(document.getElementById('editSessionFee').value) || 0, 
+                    classId: classId
+
+        };
+
+
+  
+
+        db.collection('sessions').doc(sessionId).update(updatedSession).then(() => {
+            alert('Session updated successfully');
+            closeEditModal();
+            loadSessions();
+        }).catch((error) => {
+            console.error("Error updating session: ", error);
+            alert('Error updating session');
+        });
+    });
+
+    // Delete session
+    function deleteSession(sessionId) {
+        if (confirm('Are you sure you want to delete this session?')) {
+            db.collection('sessions').doc(sessionId).delete().then(() => {
+                alert('Session deleted successfully');
+                loadSessions();
+            }).catch((error) => {
+                console.error("Error deleting session: ", error);
+                alert('Error deleting session');
+            });
+        }
+    }
+
+    // Toggle session status (enable/disable)
+    function toggleSessionStatus(sessionId, currentStatus) {
+        const newStatus = !currentStatus;
+        db.collection('sessions').doc(sessionId).update({
+            disabled: newStatus
+        }).then(() => {
+            alert(`Session ${newStatus ? 'disabled' : 'enabled'} successfully`);
+            loadSessions();
+        }).catch((error) => {
+            console.error("Error updating session status: ", error);
+            alert('Error updating session status');
+        });
+    }
+
+    // Format date for display
+    function formatDate(dateString) {
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        return new Date(dateString).toLocaleDateString(undefined, options);
+    }
+
+    // Check if a session is active based on current date
+    function isSessionActive(startDate, endDate) {
+        const currentDate = new Date();
+        const sessionStart = new Date(startDate);
+        const sessionEnd = new Date(endDate);
+        return currentDate >= sessionStart && currentDate <= sessionEnd;
+    }
+
+    // Close modal
+    function closeEditModal() {
+        document.getElementById('editSessionModal').classList.add('hidden');
+    }
+
+    // Bulk edit functionality
+    const bulkEditButton = document.getElementById('bulkEditButton');
+    const selectAllButton = document.getElementById('selectAllButton');
+    const deselectAllButton = document.getElementById('deselectAllButton');
+    const applyBulkEditButton = document.getElementById('applyBulkEditButton');
+
+    bulkEditButton.addEventListener('click', toggleBulkEditMode);
+    selectAllButton.addEventListener('click', selectAllSessions);
+    deselectAllButton.addEventListener('click', deselectAllSessions);
+    applyBulkEditButton.addEventListener('click', applyBulkEdit);
+
+    function toggleBulkEditMode() {
+        bulkEditMode = !bulkEditMode;
+        const checkboxes = document.querySelectorAll('.bulk-edit-checkbox');
+        checkboxes.forEach(checkbox => checkbox.classList.toggle('hidden'));
+        selectAllButton.classList.toggle('hidden');
+        deselectAllButton.classList.toggle('hidden');
+        applyBulkEditButton.classList.toggle('hidden');
+        bulkEditButton.textContent = bulkEditMode ? 'Cancel Bulk Edit' : 'Bulk Edit';
+    }
+
+    function selectAllSessions() {
+        const checkboxes = document.querySelectorAll('.session-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+    }
+
+    function deselectAllSessions() {
+        const checkboxes = document.querySelectorAll('.session-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+    }
+
+    function applyBulkEdit() {
+        const selectedSessions = Array.from(document.querySelectorAll('.session-checkbox:checked')).map(checkbox => checkbox.id.replace('checkbox-', ''));
+        if (selectedSessions.length === 0) {
+            alert('No sessions selected for bulk edit');
+            return;
+        }
+
+        const isPublic = confirm('Make selected sessions public?');
+        const autoApprove = confirm('Enable auto-approve for selected sessions?');
+
+        const batch = db.batch();
+        selectedSessions.forEach(sessionId => {
+            const sessionRef = db.collection('sessions').doc(sessionId);
+            batch.update(sessionRef, {
+                isPublic: isPublic,
+                autoApprove: autoApprove
+            });
+        });
+
+        batch.commit().then(() => {
+            alert('Bulk edit applied successfully');
+            loadSessions();
+            toggleBulkEditMode();
+        }).catch((error) => {
+            console.error("Error applying bulk edit: ", error);
+            alert('Error applying bulk edit');
+        });
+    }
+
+    // Load sessions on page load
+    document.addEventListener('DOMContentLoaded', loadSessions);
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const editSessionModal = document.getElementById('editSessionModal');
+        if (event.target == editSessionModal) {
+            closeEditModal();
+        }
+    }
+</script>
+</body>
+</html>
